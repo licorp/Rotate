@@ -7,6 +7,8 @@ using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace RevitRotateAddin
 {
@@ -65,101 +67,265 @@ namespace RevitRotateAddin
     [Regeneration(RegenerationOption.Manual)]
     public class RotateElementsCommand : IExternalCommand
     {
+
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiApp = commandData.Application;
             UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiDoc.Document;
 
+            Debug.WriteLine("[RotateAddin] === START EXECUTE ===");
+
             try
             {
-                // 1. Show interface to get rotation angle first
-                double rotationAngle = GetRotationAngleFromUser();
-                if (double.IsNaN(rotationAngle))
+                // Main loop to allow multiple rotations
+                while (true)
                 {
-                    return Result.Cancelled;
-                }
+                    // Show interface to get rotation angle (form will check selection when Run is clicked)
+                    Debug.WriteLine("[RotateAddin] Getting rotation angle from user");
+                    double rotationAngle = GetRotationAngleFromUser();
+                    Debug.WriteLine($"[RotateAddin] Rotation angle received: {rotationAngle} radians ({rotationAngle * 180 / Math.PI} degrees)");
+                    
+                    if (double.IsNaN(rotationAngle))
+                    {
+                        Debug.WriteLine("[RotateAddin] User cancelled - exiting tool");
+                        return Result.Cancelled;
+                    }
 
-                // 2. Check selected elements
-                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
-                if (selectedIds.Count == 0)
+                    // Now check selected elements after user clicked Run
+                    ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+                    Debug.WriteLine($"[RotateAddin] Selected elements count: {selectedIds.Count}");
+                    
+                    if (selectedIds.Count == 0)
+                    {
+                        Debug.WriteLine("[RotateAddin] No elements selected, continuing to wait for selection");
+                        continue; // Go back to show form again without any dialog
+                    }
+
+                // Check if selected elements can be rotated
+                List<ElementId> rotatableIds = new List<ElementId>();
+                List<string> nonRotatableTypes = new List<string>();
+                
+                foreach (ElementId id in selectedIds)
                 {
-                    TaskDialog.Show("Notification / Thông báo", 
-                        "Please select at least one object to rotate.\nVui lòng chọn ít nhất một đối tượng để xoay.");
-                    return Result.Cancelled;
+                    Element element = doc.GetElement(id);
+                    if (element != null)
+                    {
+                        // Check if element can be rotated (has location and is not pinned)
+                        if (element.Location != null && !element.Pinned)
+                        {
+                            rotatableIds.Add(id);
+                            Debug.WriteLine($"[RotateAddin] Element {element.Id} ({element.Category?.Name}) can be rotated");
+                        }
+                        else
+                        {
+                            string reason = element.Location == null ? "no location" : "pinned";
+                            nonRotatableTypes.Add($"{element.Category?.Name} ({reason})");
+                            Debug.WriteLine($"[RotateAddin] Element {element.Id} ({element.Category?.Name}) cannot be rotated: {reason}");
+                        }
+                    }
+                }
+                
+                if (rotatableIds.Count == 0)
+                {
+                    Debug.WriteLine("[RotateAddin] No rotatable elements found");
+                    TaskDialog.Show("Cannot Rotate / Không thể xoay", 
+                        $"None of the selected elements can be rotated.\nKhông có đối tượng nào được chọn có thể xoay.\n\nNon-rotatable: {string.Join(", ", nonRotatableTypes)}");
+                    continue; // Go back to form instead of exiting
+                }
+                
+                if (nonRotatableTypes.Count > 0)
+                {
+                    Debug.WriteLine($"[RotateAddin] Some elements cannot be rotated: {string.Join(", ", nonRotatableTypes)}");
+                    TaskDialogResult continueResult = TaskDialog.Show("Partial Selection / Chọn một phần", 
+                        $"Some elements cannot be rotated and will be skipped:\n{string.Join(", ", nonRotatableTypes)}\n\nContinue with {rotatableIds.Count} rotatable elements?\nTiếp tục với {rotatableIds.Count} đối tượng có thể xoay?",
+                        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                    if (continueResult != TaskDialogResult.Yes)
+                    {
+                        continue; // Go back to form instead of exiting
+                    }
+                }
+                
+                // Update selectedIds to only include rotatable elements
+                selectedIds = rotatableIds;
+
+                // Check if angle is effectively zero
+                if (Math.Abs(rotationAngle) < 0.0001) // Less than ~0.006 degrees
+                {
+                    Debug.WriteLine("[RotateAddin] Rotation angle is too small, asking user");
+                    TaskDialogResult zeroAngleResult = TaskDialog.Show("Small Angle / Góc nhỏ", 
+                        "The rotation angle is very small (close to zero). Continue anyway?\nGóc xoay rất nhỏ (gần bằng 0). Vẫn tiếp tục?",
+                        TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                    if (zeroAngleResult != TaskDialogResult.Yes)
+                    {
+                        Debug.WriteLine("[RotateAddin] User declined small angle - continuing to next rotation");
+                        continue; // Go back to start for next rotation
+                    }
                 }
 
                 // 3. Select rotation axis (pipe or pipe fitting)
+                Debug.WriteLine("[RotateAddin] Selecting rotation axis");
                 Line rotationAxis = SelectRotationAxis(uiDoc);
                 if (rotationAxis == null)
                 {
-                    return Result.Cancelled;
+                    Debug.WriteLine("[RotateAddin] User cancelled axis selection - continuing to next rotation");
+                    continue; // Go back to start for next rotation
                 }
+                Debug.WriteLine($"[RotateAddin] Rotation axis: Start={rotationAxis.GetEndPoint(0)}, End={rotationAxis.GetEndPoint(1)}");
 
                 // 4. Checkout elements if workshared
                 if (doc.IsWorkshared)
                 {
+                    Debug.WriteLine("[RotateAddin] Document is workshared, checking out elements");
                     try
                     {
                         WorksharingUtils.CheckoutElements(doc, selectedIds);
+                        Debug.WriteLine("[RotateAddin] Elements checked out successfully");
                     }
                     catch (Exception ex)
                     {
+                        Debug.WriteLine($"[RotateAddin] Checkout error: {ex.Message}");
                         TaskDialog.Show("Checkout Error", $"Cannot checkout elements: {ex.Message}");
                         return Result.Failed;
                     }
                 }
 
                 // 5. Perform rotation
+                Debug.WriteLine("[RotateAddin] Starting rotation transaction");
                 using (Transaction trans = new Transaction(doc, "Rotate objects around axis"))
                 {
                     trans.Start();
-                    ElementTransformUtils.RotateElements(doc, selectedIds, rotationAxis, rotationAngle);
+                    Debug.WriteLine("[RotateAddin] Transaction started");
+                    
+                    try
+                    {
+                        ElementTransformUtils.RotateElements(doc, selectedIds, rotationAxis, rotationAngle);
+                        Debug.WriteLine("[RotateAddin] RotateElements completed successfully");
+                    }
+                    catch (Exception rotateEx)
+                    {
+                        Debug.WriteLine($"[RotateAddin] RotateElements failed: {rotateEx.Message}");
+                        trans.RollBack();
+                        TaskDialog.Show("Rotation Error / Lỗi xoay", 
+                            $"Failed to rotate elements: {rotateEx.Message}\nLỗi khi xoay đối tượng: {rotateEx.Message}");
+                        return Result.Failed;
+                    }
+                    
                     trans.Commit();
+                    Debug.WriteLine("[RotateAddin] Transaction committed");
                 }
 
-                // 6. Ask user if direction is correct
+                // Ask user if direction is correct
+                Debug.WriteLine("[RotateAddin] Asking user for direction confirmation");
                 TaskDialogResult result = TaskDialog.Show(
                     "Confirmation / Xác nhận", 
                     "Objects have been rotated. Is the direction correct?\nCác đối tượng đã được xoay. Hướng có đúng không?",
                     TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+                Debug.WriteLine($"[RotateAddin] User confirmation result: {result}");
 
                 if (result == TaskDialogResult.No)
                 {
+                    Debug.WriteLine("[RotateAddin] User wants to reverse rotation");
                     // Rotate back by rotating additional -2 * original angle
                     using (Transaction trans = new Transaction(doc, "Rotate reverse direction"))
                     {
                         trans.Start();
                         ElementTransformUtils.RotateElements(doc, selectedIds, rotationAxis, -2 * rotationAngle);
                         trans.Commit();
+                        Debug.WriteLine("[RotateAddin] Reverse rotation completed");
                     }
                 }
 
-                return Result.Succeeded;
+                // Rotation completed successfully - prepare for next rotation
+                Debug.WriteLine("[RotateAddin] Rotation completed - preparing for next rotation");
+                uiDoc.Selection.SetElementIds(new List<ElementId>());
+                
+                continue; // Go back to the start of the main loop
+                } // End of main while loop
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
+                Debug.WriteLine("[RotateAddin] Operation cancelled by user");
                 return Result.Cancelled;
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"[RotateAddin] ERROR: {ex.Message}");
+                Debug.WriteLine($"[RotateAddin] Stack trace: {ex.StackTrace}");
                 message = $"Error: {ex.Message}";
                 return Result.Failed;
             }
         }
 
+        // Static variables for form reuse
+        private static RotateWindow _rotateWindow;
+        private static bool _isWaitingForInput = false;
+        private static double _receivedAngle = double.NaN;
+
         /// <summary>
-        /// Get rotation angle from user using WPF interface
+        /// Get rotation angle from user using reusable WPF interface
         /// </summary>
         private double GetRotationAngleFromUser()
         {
-            var window = new RotateWindow();
-            if (window.ShowDialog() == true && window.IsOKClicked)
+            Debug.WriteLine("[RotateAddin] === GetRotationAngleFromUser START ===");
+            
+            // Tạo hoặc tái sử dụng window
+            if (_rotateWindow == null)
             {
-                // Convert from degrees to radians
-                return window.AngleInDegrees * Math.PI / 180.0;
+                Debug.WriteLine("[RotateAddin] Creating new RotateWindow");
+                _rotateWindow = new RotateWindow();
+                
+                // Subscribe to rotation event
+                _rotateWindow.RotationRequested += OnRotationRequested;
             }
+            else
+            {
+                Debug.WriteLine("[RotateAddin] Reusing existing RotateWindow");
+            }
+
+            // Reset và show window
+            _isWaitingForInput = true;
+            _receivedAngle = double.NaN;
+            
+            Debug.WriteLine("[RotateAddin] Showing rotate window");
+            _rotateWindow.ShowRotateWindow();
+
+            // Wait for user input (simple polling)
+            int timeout = 0;
+            while (_isWaitingForInput && timeout < 300000) // 5 minutes timeout
+            {
+                System.Threading.Thread.Sleep(100);
+                timeout += 100;
+                
+                // Process Windows messages
+                System.Windows.Forms.Application.DoEvents();
+            }
+
+            if (!_isWaitingForInput && !double.IsNaN(_receivedAngle))
+            {
+                Debug.WriteLine($"[RotateAddin] Received angle: {_receivedAngle} degrees");
+                
+                // Show form again after processing
+                _rotateWindow.ShowAgainAfterProcessing();
+                
+                // Convert to radians
+                double radians = _receivedAngle * Math.PI / 180.0;
+                Debug.WriteLine($"[RotateAddin] Returning angle: {radians} radians ({_receivedAngle} degrees)");
+                return radians;
+            }
+            
+            Debug.WriteLine("[RotateAddin] Timeout or cancelled");
             return double.NaN;
+        }
+
+        /// <summary>
+        /// Event handler for rotation request
+        /// </summary>
+        private static void OnRotationRequested(object sender, RotationEventArgs e)
+        {
+            Debug.WriteLine($"[RotateAddin] OnRotationRequested: {e.AngleInDegrees} degrees");
+            _receivedAngle = e.AngleInDegrees;
+            _isWaitingForInput = false;
         }
 
         /// <summary>
@@ -230,6 +396,18 @@ namespace RevitRotateAddin
             }
             
             return null;
+        }
+
+        /// <summary>
+        /// Cleanup method để gọi khi application shutdown
+        /// </summary>
+        public static void Cleanup()
+        {
+            if (_rotateWindow != null)
+            {
+                _rotateWindow.Close();
+                _rotateWindow = null;
+            }
         }
     }
 }
