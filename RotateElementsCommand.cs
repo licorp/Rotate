@@ -288,10 +288,13 @@ namespace RevitRotateAddin
             _receivedAngle = double.NaN;
             
             Debug.WriteLine("[RotateAddin] Showing rotate window");
+            Debug.WriteLine($"[RotateAddin] _isWaitingForInput reset to: {_isWaitingForInput}");
+            Debug.WriteLine($"[RotateAddin] _receivedAngle reset to: {_receivedAngle}");
             _rotateWindow.ShowRotateWindow();
 
             // Wait for user input (simple polling)
             int timeout = 0;
+            Debug.WriteLine("[RotateAddin] Starting polling loop");
             while (_isWaitingForInput && timeout < 300000) // 5 minutes timeout
             {
                 System.Threading.Thread.Sleep(100);
@@ -299,7 +302,15 @@ namespace RevitRotateAddin
                 
                 // Process Windows messages
                 System.Windows.Forms.Application.DoEvents();
+                
+                // Debug every 5 seconds
+                if (timeout % 5000 == 0)
+                {
+                    Debug.WriteLine($"[RotateAddin] Polling... timeout: {timeout}ms, waiting: {_isWaitingForInput}, angle: {_receivedAngle}");
+                }
             }
+
+            Debug.WriteLine($"[RotateAddin] Polling ended - timeout: {timeout}ms, waiting: {_isWaitingForInput}, angle: {_receivedAngle}");
 
             if (!_isWaitingForInput && !double.IsNaN(_receivedAngle))
             {
@@ -323,9 +334,17 @@ namespace RevitRotateAddin
         /// </summary>
         private static void OnRotationRequested(object sender, RotationEventArgs e)
         {
+            Debug.WriteLine($"[RotateAddin] === OnRotationRequested START ===");
             Debug.WriteLine($"[RotateAddin] OnRotationRequested: {e.AngleInDegrees} degrees");
+            Debug.WriteLine($"[RotateAddin] Before update - _isWaitingForInput: {_isWaitingForInput}");
+            Debug.WriteLine($"[RotateAddin] Before update - _receivedAngle: {_receivedAngle}");
+            
             _receivedAngle = e.AngleInDegrees;
             _isWaitingForInput = false;
+            
+            Debug.WriteLine($"[RotateAddin] After update - _isWaitingForInput: {_isWaitingForInput}");
+            Debug.WriteLine($"[RotateAddin] After update - _receivedAngle: {_receivedAngle}");
+            Debug.WriteLine($"[RotateAddin] === OnRotationRequested END ===");
         }
 
         /// <summary>

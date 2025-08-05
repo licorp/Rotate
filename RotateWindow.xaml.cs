@@ -10,6 +10,7 @@ namespace RevitRotateAddin
         public double AngleInDegrees { get; private set; } = 0.0;
         public bool IsOKClicked { get; private set; } = false;
         private bool _allowClose = false;
+        private bool _shouldClearOnNextInput = true; // Flag to clear text on next input
         
         // Event để thông báo khi user nhấn Run
         public event EventHandler<RotationEventArgs> RotationRequested;
@@ -29,6 +30,7 @@ namespace RevitRotateAddin
             // Reset trạng thái CHỈ LẦN ĐẦU TIÊN
             IsOKClicked = false;
             AngleInDegrees = 0.0;
+            _shouldClearOnNextInput = true; // Reset flag for new input session
             
             // KHÔNG reset text nếu user đã nhập
             if (string.IsNullOrEmpty(angleTextBox.Text))
@@ -81,7 +83,10 @@ namespace RevitRotateAddin
                 this.Hide();
                 
                 // Trigger event để thông báo cho main command
+                Debug.WriteLine($"[RotateWindow] Triggering RotationRequested event with angle: {angle}");
+                Debug.WriteLine($"[RotateWindow] Event subscribers count: {RotationRequested?.GetInvocationList()?.Length ?? 0}");
                 RotationRequested?.Invoke(this, new RotationEventArgs(angle));
+                Debug.WriteLine("[RotateWindow] RotationRequested event triggered");
             }
             else
             {
@@ -110,8 +115,11 @@ namespace RevitRotateAddin
             Debug.WriteLine($"[RotateWindow] angleTextBox.IsEnabled: {angleTextBox.IsEnabled}");
             Debug.WriteLine($"[RotateWindow] angleTextBox.IsReadOnly: {angleTextBox.IsReadOnly}");
             Debug.WriteLine($"[RotateWindow] angleTextBox.Text: '{angleTextBox.Text}'");
-            // DON'T SelectAll here - it might interfere with input
-            // angleTextBox.SelectAll();
+            
+            // Select all text when focused so user can type to replace
+            angleTextBox.SelectAll();
+            _shouldClearOnNextInput = true;
+            Debug.WriteLine("[RotateWindow] Focus restored to angleTextBox");
         }
 
         private void angleTextBox_LostFocus(object sender, RoutedEventArgs e)
@@ -182,6 +190,7 @@ namespace RevitRotateAddin
             // Handle Backspace
             else if (e.Key == System.Windows.Input.Key.Back)
             {
+                _shouldClearOnNextInput = false; // Reset flag when editing
                 if (angleTextBox.Text.Length > 0)
                 {
                     int caretIndex = angleTextBox.CaretIndex;
@@ -199,6 +208,7 @@ namespace RevitRotateAddin
             // Handle Delete
             else if (e.Key == System.Windows.Input.Key.Delete)
             {
+                _shouldClearOnNextInput = false; // Reset flag when editing
                 if (angleTextBox.Text.Length > 0)
                 {
                     int caretIndex = angleTextBox.CaretIndex;
@@ -217,6 +227,15 @@ namespace RevitRotateAddin
             // Manual text insertion for valid keys
             if (isValidKey)
             {
+                // Clear text on first input if flag is set
+                if (_shouldClearOnNextInput)
+                {
+                    angleTextBox.Text = "";
+                    angleTextBox.CaretIndex = 0;
+                    _shouldClearOnNextInput = false;
+                    Debug.WriteLine("[RotateWindow] Cleared text for new input");
+                }
+                
                 int caretIndex = angleTextBox.CaretIndex;
                 string currentText = angleTextBox.Text;
                 string newText = currentText.Insert(caretIndex, keyChar);

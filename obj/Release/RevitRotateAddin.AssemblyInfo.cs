@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("RevitRotateAddin")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4227a86873a0ed0c519c616a90206c7a8e4095a3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+509be5933a6313c1eb009a36b65cb65101b72120")]
 [assembly: System.Reflection.AssemblyProductAttribute("RevitRotateAddin")]
 [assembly: System.Reflection.AssemblyTitleAttribute("RevitRotateAddin")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
