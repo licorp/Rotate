@@ -1,0 +1,165 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
+
+namespace RevitRotateAddin
+{
+    /// <summary>
+    /// Filter ?? ch?n các ph?n t? có th? làm tr?c xoay (có curve d?ng Line)
+    /// </summary>
+    public class AxisSelectionFilter : ISelectionFilter
+    {
+        public bool AllowElement(Element elem)
+        {
+            // Ki?m tra xem element có Location.Curve là Line không
+            if (elem?.Location is LocationCurve locationCurve && 
+                locationCurve.Curve is Line)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public bool AllowReference(Reference reference, XYZ position)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Command ?? xoay các ??i t??ng ???c ch?n quanh tr?c
+    /// </summary>
+    [Transaction(TransactionMode.Manual)]
+    [Regeneration(RegenerationOption.Manual)]
+    public class RotateElementsCommand : IExternalCommand
+    {
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        {
+            UIApplication uiApp = commandData.Application;
+            UIDocument uiDoc = uiApp.ActiveUIDocument;
+            Document doc = uiDoc.Document;
+
+            try
+            {
+                // 1. Ki?m tra các elements ???c ch?n
+                ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+                if (selectedIds.Count == 0)
+                {
+                    TaskDialog.Show("Thông báo", "Vui lòng ch?n ít nh?t m?t ??i t??ng ?? xoay.");
+                    return Result.Cancelled;
+                }
+
+                // 2. Nh?p góc xoay
+                double rotationAngle = GetRotationAngleFromUser();
+                if (double.IsNaN(rotationAngle))
+                {
+                    return Result.Cancelled;
+                }
+
+                // 3. Ch?n tr?c xoay
+                Line rotationAxis = SelectRotationAxis(uiDoc);
+                if (rotationAxis == null)
+                {
+                    return Result.Cancelled;
+                }
+
+                // 4. Checkout elements n?u là workshared
+                if (doc.IsWorkshared)
+                {
+                    try
+                    {
+                        WorksharingUtils.CheckoutElements(doc, selectedIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        TaskDialog.Show("L?i Checkout", $"Không th? checkout elements: {ex.Message}");
+                        return Result.Failed;
+                    }
+                }
+
+                // 5. Th?c hi?n xoay
+                using (Transaction trans = new Transaction(doc, "Xoay ??i t??ng quanh tr?c"))
+                {
+                    trans.Start();
+                    ElementTransformUtils.RotateElements(doc, selectedIds, rotationAxis, rotationAngle);
+                    trans.Commit();
+                }
+
+                // 6. H?i ng??i dùng xem có ?úng h??ng không
+                TaskDialogResult result = TaskDialog.Show(
+                    "Xác nh?n", 
+                    "Các ??i t??ng ?ã ???c xoay. Có ?úng h??ng không?",
+                    TaskDialogCommonButtons.Yes | TaskDialogCommonButtons.No);
+
+                if (result == TaskDialogResult.No)
+                {
+                    // Xoay ng??c l?i b?ng cách xoay thêm -2 * góc ban ??u
+                    using (Transaction trans = new Transaction(doc, "Xoay ng??c h??ng"))
+                    {
+                        trans.Start();
+                        ElementTransformUtils.RotateElements(doc, selectedIds, rotationAxis, -2 * rotationAngle);
+                        trans.Commit();
+                    }
+                }
+
+                return Result.Succeeded;
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                return Result.Cancelled;
+            }
+            catch (Exception ex)
+            {
+                message = $"L?i: {ex.Message}";
+                return Result.Failed;
+            }
+        }
+
+        /// <summary>
+        /// L?y góc xoay t? ng??i dùng
+        /// </summary>
+        private double GetRotationAngleFromUser()
+        {
+            using (var form = new AngleInputForm())
+            {
+                if (form.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    // Chuy?n ??i t? ?? sang radian
+                    return form.AngleInDegrees * Math.PI / 180.0;
+                }
+            }
+            return double.NaN;
+        }
+
+        /// <summary>
+        /// Cho phép ng??i dùng ch?n tr?c xoay
+        /// </summary>
+        private Line SelectRotationAxis(UIDocument uiDoc)
+        {
+            try
+            {
+                Reference reference = uiDoc.Selection.PickObject(
+                    ObjectType.Element, 
+                    new AxisSelectionFilter(), 
+                    "Ch?n m?t ???ng th?ng làm tr?c xoay");
+
+                Element axisElement = uiDoc.Document.GetElement(reference);
+                if (axisElement?.Location is LocationCurve locationCurve && 
+                    locationCurve.Curve is Line line)
+                {
+                    return line;
+                }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException)
+            {
+                // Ng??i dùng h?y b?
+            }
+            
+            return null;
+        }
+    }
+}

@@ -1,0 +1,45 @@
+﻿using System;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.UI;
+
+namespace RevitRotateAddin
+{
+    /// <summary>
+    /// Class để khởi tạo ứng dụng Revit Addin
+    /// </summary>
+    public class Application : IExternalApplication
+    {
+        public Result OnStartup(UIControlledApplication application)
+        {
+            try
+            {
+                // Tạo Ribbon Panel
+                RibbonPanel ribbonPanel = application.CreateRibbonPanel("Rotation Tools");
+
+                // Tạo Push Button
+                string thisAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                PushButtonData buttonData = new PushButtonData(
+                    "RotateElements",
+                    "Xoay 3D",
+                    thisAssemblyPath,
+                    "RevitRotateAddin.RotateElementsCommand");
+
+                PushButton pushButton = ribbonPanel.AddItem(buttonData) as PushButton;
+                pushButton.ToolTip = "Xoay các đối tượng được chọn quanh trục 3D";
+                pushButton.LongDescription = "Chọn các đối tượng, nhập góc xoay và chọn trục để xoay các đối tượng trong không gian 3D";
+
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Lỗi khởi tạo", $"Không thể khởi tạo ứng dụng: {ex.Message}");
+                return Result.Failed;
+            }
+        }
+
+        public Result OnShutdown(UIControlledApplication application)
+        {
+            return Result.Succeeded;
+        }
+    }
+}

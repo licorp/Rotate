@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Revit Rotate Addin</Name>
+    <Assembly>RevitRotateAddin.dll</Assembly>
+    <FullClassName>RevitRotateAddin.Application</FullClassName>
+    <ClientId>f3f5d7a1-6c9c-4f7d-8a9e-5b4c3d2e1f00</ClientId>
+    <VendorId>Quoc.Nguyen</VendorId>
+    <VendorDescription>Quoc Nguyen Software</VendorDescription>
+  </AddIn>
+</RevitAddIns>

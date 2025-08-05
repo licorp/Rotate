@@ -1,0 +1,99 @@
+﻿using System;
+using System.Windows.Forms;
+
+namespace RevitRotateAddin
+{
+    public partial class AngleInputForm : Form
+    {
+        public double AngleInDegrees { get; private set; } = 0.0;
+
+        private System.Windows.Forms.TextBox txtAngle;
+        private System.Windows.Forms.Label lblAngle;
+        private System.Windows.Forms.Button btnOK;
+        private System.Windows.Forms.Button btnCancel;
+
+        public AngleInputForm()
+        {
+            InitializeComponent();
+        }
+
+        private void InitializeComponent()
+        {
+            this.txtAngle = new System.Windows.Forms.TextBox();
+            this.lblAngle = new System.Windows.Forms.Label();
+            this.btnOK = new System.Windows.Forms.Button();
+            this.btnCancel = new System.Windows.Forms.Button();
+            this.SuspendLayout();
+            
+            // lblAngle
+            this.lblAngle.AutoSize = true;
+            this.lblAngle.Location = new System.Drawing.Point(12, 15);
+            this.lblAngle.Name = "lblAngle";
+            this.lblAngle.Size = new System.Drawing.Size(120, 13);
+            this.lblAngle.TabIndex = 0;
+            this.lblAngle.Text = "Nhập góc xoay (độ):";
+            
+            // txtAngle
+            this.txtAngle.Location = new System.Drawing.Point(12, 31);
+            this.txtAngle.Name = "txtAngle";
+            this.txtAngle.Size = new System.Drawing.Size(260, 20);
+            this.txtAngle.TabIndex = 1;
+            this.txtAngle.Text = "0.0";
+            
+            // btnOK
+            this.btnOK.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnOK.Location = new System.Drawing.Point(116, 57);
+            this.btnOK.Name = "btnOK";
+            this.btnOK.Size = new System.Drawing.Size(75, 23);
+            this.btnOK.TabIndex = 2;
+            this.btnOK.Text = "OK";
+            this.btnOK.UseVisualStyleBackColor = true;
+            this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
+            
+            // btnCancel
+            this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            this.btnCancel.Location = new System.Drawing.Point(197, 57);
+            this.btnCancel.Name = "btnCancel";
+            this.btnCancel.Size = new System.Drawing.Size(75, 23);
+            this.btnCancel.TabIndex = 3;
+            this.btnCancel.Text = "Hủy";
+            this.btnCancel.UseVisualStyleBackColor = true;
+            
+            // AngleInputForm
+            this.AcceptButton = this.btnOK;
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.CancelButton = this.btnCancel;
+            this.ClientSize = new System.Drawing.Size(284, 92);
+            this.Controls.Add(this.btnCancel);
+            this.Controls.Add(this.btnOK);
+            this.Controls.Add(this.txtAngle);
+            this.Controls.Add(this.lblAngle);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Name = "AngleInputForm";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+            this.Text = "Nhập góc xoay";
+            this.ResumeLayout(false);
+            this.PerformLayout();
+        }
+
+        private void btnOK_Click(object sender, EventArgs e)
+        {
+            if (double.TryParse(txtAngle.Text, out double angle))
+            {
+                AngleInDegrees = angle;
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            else
+            {
+                MessageBox.Show("Vui lòng nhập một số hợp lệ cho góc xoay.", "Lỗi nhập liệu", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtAngle.Focus();
+                txtAngle.SelectAll();
+            }
+        }
+    }
+}

@@ -1,0 +1,45 @@
+﻿using System;
+using Autodesk.Revit.Attributes;
+using Autodesk.Revit.UI;
+
+namespace RevitRotateAddin
+{
+    /// <summary>
+    /// Class de khoi tao ung dung Revit Addin
+    /// </summary>
+    public class Application : IExternalApplication
+    {
+        public Result OnStartup(UIControlledApplication application)
+        {
+            try
+            {
+                // Tao Ribbon Panel
+                RibbonPanel ribbonPanel = application.CreateRibbonPanel("Rotation Tools");
+
+                // Tao Push Button
+                string thisAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                PushButtonData buttonData = new PushButtonData(
+                    "RotateElements",
+                    "Xoay 3D",
+                    thisAssemblyPath,
+                    "RevitRotateAddin.RotateElementsCommand");
+
+                PushButton pushButton = ribbonPanel.AddItem(buttonData) as PushButton;
+                pushButton.ToolTip = "Xoay cac doi tuong duoc chon quanh truc 3D";
+                pushButton.LongDescription = "Chon cac doi tuong, nhap goc xoay va chon truc de xoay cac doi tuong trong khong gian 3D";
+
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Loi khoi tao", $"Khong the khoi tao ung dung: {ex.Message}");
+                return Result.Failed;
+            }
+        }
+
+        public Result OnShutdown(UIControlledApplication application)
+        {
+            return Result.Succeeded;
+        }
+    }
+}
