@@ -1,0 +1,15 @@
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\bin\Debug\RevitRotateAddin.addin
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\bin\Debug\RevitRotateAddin.dll
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\bin\Debug\RevitRotateAddin.pdb
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.csproj.AssemblyReference.cache
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RotateWindow.baml
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RotateWindow.g.cs
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin_MarkupCompile.cache
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.g.resources
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.GeneratedMSBuildEditorConfig.editorconfig
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.AssemblyInfoInputs.cache
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.AssemblyInfo.cs
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.csproj.CoreCompileInputs.cache
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.sourcelink.json
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.dll
+D:\OneDrive\Desktop\Software Licorp\Modify\Rotate\obj\Debug\RevitRotateAddin.pdb
